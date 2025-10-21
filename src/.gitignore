@@ -1,0 +1,9 @@
+# Dependencias (ignorar esto)
+/node_modules
+
+# Archivos de compilación
+/build
+
+# Logs
+npm-debug.log
+*.log
