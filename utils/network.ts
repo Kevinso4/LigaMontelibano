@@ -10,6 +10,10 @@ if (Platform.OS !== 'web') {
   }
 }
 
+export const isWeb = (): boolean => {
+  return Platform.OS === 'web';
+};
+
 export const checkConnection = async (): Promise<boolean> => {
   // En web, asumir que hay conexión
   if (Platform.OS === 'web') {

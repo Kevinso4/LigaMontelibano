@@ -1,21 +1,38 @@
+import { useColorScheme } from 'react-native'; // ✅ CORRECTO:
+
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * Hook para obtener un color basado en el tema actual (claro u oscuro)
  */
-
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
-) {
+  colorName: string
+): string {
   const theme = useColorScheme() ?? 'light';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {
     return colorFromProps;
-  } else {
-    return Colors[theme][colorName];
   }
+
+  // Colores por defecto
+  const defaultColors = {
+    light: {
+      text: '#11181C',
+      background: '#fff',
+      tint: '#007AFF',
+      icon: '#687076',
+      tabIconDefault: '#687076',
+      tabIconSelected: '#007AFF',
+    },
+    dark: {
+      text: '#ECEDEE',
+      background: '#151718',
+      tint: '#0a7ea4',
+      icon: '#9BA1A6',
+      tabIconDefault: '#9BA1A6',
+      tabIconSelected: '#0a7ea4',
+    },
+  };
+
+  return defaultColors[theme][colorName as keyof typeof defaultColors.light] ?? '#000';
 }

@@ -13,6 +13,7 @@ import {
 import { useFocusEffect, router } from 'expo-router';
 import { Team } from '../../types';
 import { getTeams, deleteTeam } from '../../utils/storage';
+import { Colors, Spacing, BorderRadius, FontSize } from '../../utils/theme';
 
 export default function TeamsScreen() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -20,7 +21,6 @@ export default function TeamsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Cargar equipos desde AsyncStorage
   const loadTeams = async () => {
     setIsLoading(true);
     try {
@@ -34,21 +34,18 @@ export default function TeamsScreen() {
     }
   };
 
-  // Recargar equipos al hacer pull-to-refresh
   const onRefresh = async () => {
     setRefreshing(true);
     await loadTeams();
     setRefreshing(false);
   };
 
-  // Recargar equipos cuando la pantalla obtiene foco
   useFocusEffect(
     useCallback(() => {
       loadTeams();
     }, [])
   );
 
-  // Eliminar un equipo
   const handleDeleteTeam = (team: Team) => {
     Alert.alert(
       'Confirmar eliminación',
@@ -72,25 +69,52 @@ export default function TeamsScreen() {
     );
   };
 
-  // Filtrar equipos por búsqueda
   const filteredTeams = teams.filter(team =>
     team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     team.captain.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Renderizar cada equipo
   const renderTeamItem = ({ item }: { item: Team }) => (
     <View style={styles.teamCard}>
-      <View style={styles.teamInfo}>
+      <TouchableOpacity 
+        style={styles.teamInfo}
+        onPress={() => router.push(`/editar-equipo/${item.id}`)}
+      >
         <Text style={styles.teamName}>{item.name}</Text>
         <Text style={styles.captainName}>Capitán: {item.captain}</Text>
-      </View>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteTeam(item)}
-      >
-        <Text style={styles.deleteButtonText}>🗑️</Text>
+        {item.points !== undefined && (
+          <View style={styles.statsRow}>
+            <Text style={styles.statsText}>{item.points} pts</Text>
+            <Text style={styles.statsText}>•</Text>
+            <Text style={styles.statsText}>
+              {item.wins || 0}G {item.draws || 0}E {item.losses || 0}P
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
+
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => router.push(`/editar-equipo/${item.id}`)}
+        >
+          <Text style={styles.editButtonText}>✏️</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteTeam(item)}
+        >
+          <Text style={styles.deleteButtonText}>🗑️</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => router.push(`/equipo/${item.id}/jugadores` as any)}
+        >
+          <Text style={styles.iconButtonText}>👥</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -108,7 +132,6 @@ export default function TeamsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Equipos Registrados</Text>
         
-        {/* Barra de búsqueda */}
         <TextInput
           style={styles.searchInput}
           placeholder="🔍 Buscar equipo o capitán..."
@@ -228,11 +251,38 @@ const styles = StyleSheet.create({
   captainName: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 5,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: 5,
+  },
+  statsText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 5,
+  },
+  editButton: {
+    padding: 10,
+  },
+  editButtonText: {
+    fontSize: 20,
   },
   deleteButton: {
     padding: 10,
   },
   deleteButtonText: {
+    fontSize: 20,
+  },
+  iconButton: {
+    padding: 8,
+  },
+  iconButtonText: {
     fontSize: 20,
   },
   emptyContainer: {

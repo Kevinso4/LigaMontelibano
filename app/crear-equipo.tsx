@@ -15,6 +15,7 @@ import {
 import { router } from 'expo-router';
 import { Team } from '../types';
 import { getTeams, saveTeams } from '../utils/storage';
+import { Colors, Spacing, BorderRadius, FontSize } from '../utils/theme';
 
 export default function CreateTeamScreen() {
   const [teamName, setTeamName] = useState('');

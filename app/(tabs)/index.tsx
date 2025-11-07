@@ -3,164 +3,230 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  ImageBackground,
+  TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, router } from 'expo-router';
-
-interface Team {
-  id: string;
-  name: string;
-  captain: string;
-  createdAt: string;
-}
+import { Team, Match } from '../../types';
+import { getTeams, getMatches } from '../../utils/storage';
+import { Colors, Spacing, BorderRadius, FontSize } from '../../utils/theme';
+import Card from '../../components/Card';
 
 export default function HomeScreen() {
-  const [totalTeams, setTotalTeams] = useState(0);
-  const [recentTeams, setRecentTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Cargar estadísticas
-  const loadStats = async () => {
+  const loadData = async () => {
     try {
-      const storedTeams = await AsyncStorage.getItem('teams');
-      if (storedTeams) {
-        const teams: Team[] = JSON.parse(storedTeams);
-        setTotalTeams(teams.length);
-        // Obtener los 3 equipos más recientes
-        const sorted = teams.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        setRecentTeams(sorted.slice(0, 3));
-      }
+      const [loadedTeams, loadedMatches] = await Promise.all([
+        getTeams(),
+        getMatches(),
+      ]);
+      setTeams(loadedTeams);
+      setMatches(loadedMatches);
     } catch (error) {
-      console.error('Error cargando estadísticas:', error);
+      console.error('Error cargando datos:', error);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadStats();
+      loadData();
     }, [])
   );
 
+  const totalMatches = matches.length;
+  const finishedMatches = matches.filter(m => m.status === 'finished').length;
+  const pendingMatches = matches.filter(m => m.status === 'pending').length;
+  const totalGoals = matches
+    .filter(m => m.status === 'finished')
+    .reduce((sum, m) => sum + m.homeScore + m.awayScore, 0);
+
+  const topTeams = [...teams]
+    .sort((a, b) => (b.points || 0) - (a.points || 0))
+    .slice(0, 3);
+
+  const recentMatches = [...matches]
+    .filter(m => m.status === 'finished')
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Header con gradiente */}
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {/* Header con gradiente simulado */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>⚽ Liga Montelibano</Text>
-        <Text style={styles.headerSubtitle}>Sistema de Gestión Deportiva</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.greeting}>⚽ Liga Montelibano</Text>
+          <Text style={styles.subtitle}>Temporada 2025</Text>
+        </View>
       </View>
 
-      {/* Tarjetas de estadísticas */}
+      {/* Estadísticas rápidas */}
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{totalTeams}</Text>
-          <Text style={styles.statLabel}>Equipos Registrados</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>0</Text>
-          <Text style={styles.statLabel}>Partidos Jugados</Text>
-        </View>
+        <Card style={styles.statCard}>
+          <Text style={styles.statNumber}>{teams.length}</Text>
+          <Text style={styles.statLabel}>Equipos</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <Text style={styles.statNumber}>{finishedMatches}</Text>
+          <Text style={styles.statLabel}>Partidos</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <Text style={styles.statNumber}>{totalGoals}</Text>
+          <Text style={styles.statLabel}>Goles</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <Text style={styles.statNumber}>{pendingMatches}</Text>
+          <Text style={styles.statLabel}>Pendientes</Text>
+        </Card>
       </View>
 
-      {/* Accesos rápidos */}
+      {/* Acciones rápidas */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Accesos Rápidos</Text>
-        
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => router.push('/crear-equipo')}
-        >
-          <View style={styles.quickActionIcon}>
-            <Text style={styles.iconText}>➕</Text>
-          </View>
-          <View style={styles.quickActionContent}>
-            <Text style={styles.quickActionTitle}>Registrar Equipo</Text>
-            <Text style={styles.quickActionDescription}>
-              Agrega un nuevo equipo a la liga
-            </Text>
-          </View>
-          <Text style={styles.arrow}>›</Text>
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>⚡ Acciones Rápidas</Text>
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: Colors.primary }]}
+            onPress={() => router.push('/crear-equipo')}
+          >
+            <Text style={styles.actionIcon}>➕</Text>
+            <Text style={styles.actionText}>Nuevo Equipo</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.quickActionCard}
-          onPress={() => router.push('/(tabs)/equipos')}
-        >
-          <View style={styles.quickActionIcon}>
-            <Text style={styles.iconText}>👥</Text>
-          </View>
-          <View style={styles.quickActionContent}>
-            <Text style={styles.quickActionTitle}>Ver Equipos</Text>
-            <Text style={styles.quickActionDescription}>
-              Consulta todos los equipos registrados
-            </Text>
-          </View>
-          <Text style={styles.arrow}>›</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: Colors.success }]}
+            onPress={() => router.push('/crear-partido')}
+          >
+            <Text style={styles.actionIcon}>🏆</Text>
+            <Text style={styles.actionText}>Nuevo Partido</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.quickActionCard, styles.disabledCard]}
-          disabled
-        >
-          <View style={styles.quickActionIcon}>
-            <Text style={styles.iconText}>🏆</Text>
-          </View>
-          <View style={styles.quickActionContent}>
-            <Text style={styles.quickActionTitle}>Tabla de Posiciones</Text>
-            <Text style={styles.quickActionDescription}>
-              Próximamente disponible
-            </Text>
-          </View>
-          <Text style={styles.arrow}>›</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: Colors.secondary }]}
+            onPress={() => router.push('/(tabs)/tabla')}
+          >
+            <Text style={styles.actionIcon}>📊</Text>
+            <Text style={styles.actionText}>Ver Tabla</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: Colors.warning }]}
+            onPress={() => router.push('/(tabs)/estadisticas')}
+          >
+            <Text style={styles.actionIcon}>📈</Text>
+            <Text style={styles.actionText}>Estadísticas</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Equipos recientes */}
-      {recentTeams.length > 0 && (
+      {/* Top 3 equipos */}
+      {topTeams.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Últimos Equipos Registrados</Text>
-          {recentTeams.map((team) => (
-            <View key={team.id} style={styles.recentTeamCard}>
-              <View style={styles.teamBadge}>
-                <Text style={styles.teamBadgeText}>⚽</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>🏅 Top 3 Equipos</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/tabla')}>
+              <Text style={styles.seeMoreText}>Ver más →</Text>
+            </TouchableOpacity>
+          </View>
+
+          {topTeams.map((team, index) => (
+            <Card key={team.id} style={styles.teamCard}>
+              <View style={styles.teamRank}>
+                <View
+                  style={[
+                    styles.rankBadge,
+                    index === 0 && { backgroundColor: Colors.gold },
+                    index === 1 && { backgroundColor: Colors.silver },
+                    index === 2 && { backgroundColor: Colors.bronze },
+                  ]}
+                >
+                  <Text style={styles.rankText}>#{index + 1}</Text>
+                </View>
               </View>
-              <View style={styles.recentTeamInfo}>
-                <Text style={styles.recentTeamName}>{team.name}</Text>
-                <Text style={styles.recentTeamCaptain}>
-                  Capitán: {team.captain}
+
+              <View style={styles.teamInfo}>
+                <Text style={styles.teamName}>{team.name}</Text>
+                <Text style={styles.teamCaptain}>Cap: {team.captain}</Text>
+              </View>
+
+              <View style={styles.teamStats}>
+                <Text style={styles.teamPoints}>{team.points || 0} pts</Text>
+                <Text style={styles.teamRecord}>
+                  {team.wins || 0}G {team.draws || 0}E {team.losses || 0}P
                 </Text>
               </View>
-            </View>
+            </Card>
           ))}
         </View>
       )}
 
-      {/* Mensaje de bienvenida si no hay equipos */}
-      {totalTeams === 0 && (
-        <View style={styles.welcomeContainer}>
-          <Text style={styles.welcomeEmoji}>🎉</Text>
-          <Text style={styles.welcomeTitle}>¡Bienvenido a Liga Montelibano!</Text>
-          <Text style={styles.welcomeText}>
-            Comienza registrando tu primer equipo para empezar a gestionar tu liga deportiva.
+      {/* Últimos partidos */}
+      {recentMatches.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>⏱️ Últimos Resultados</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/partidos')}>
+              <Text style={styles.seeMoreText}>Ver más →</Text>
+            </TouchableOpacity>
+          </View>
+
+          {recentMatches.map((match) => (
+            <Card key={match.id} style={styles.matchCard}>
+              <View style={styles.matchRow}>
+                <Text style={styles.matchTeam}>{match.homeTeamName}</Text>
+                <Text style={styles.matchScore}>{match.homeScore}</Text>
+              </View>
+
+              <View style={styles.matchDivider} />
+
+              <View style={styles.matchRow}>
+                <Text style={styles.matchTeam}>{match.awayTeamName}</Text>
+                <Text style={styles.matchScore}>{match.awayScore}</Text>
+              </View>
+
+              <Text style={styles.matchDate}>
+                {new Date(match.date).toLocaleDateString('es-ES', {
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </Text>
+            </Card>
+          ))}
+        </View>
+      )}
+
+      {/* Mensaje si no hay datos */}
+      {teams.length === 0 && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🚀</Text>
+          <Text style={styles.emptyTitle}>¡Bienvenido!</Text>
+          <Text style={styles.emptyText}>
+            Comienza registrando tu primer equipo para gestionar tu liga.
           </Text>
           <TouchableOpacity
-            style={styles.welcomeButton}
+            style={styles.emptyButton}
             onPress={() => router.push('/crear-equipo')}
           >
-            <Text style={styles.welcomeButtonText}>Registrar Primer Equipo</Text>
+            <Text style={styles.emptyButtonText}>Registrar Primer Equipo</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Liga Montelibano © 2025
-        </Text>
-      </View>
+      <View style={{ height: Spacing.xl }} />
     </ScrollView>
   );
 }
@@ -168,200 +234,212 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: '#007AFF',
-    padding: 30,
-    paddingTop: 40,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    backgroundColor: Colors.primary,
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: Spacing.lg,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
-  headerTitle: {
-    fontSize: 32,
+  headerContent: {
+    alignItems: 'center',
+  },
+  greeting: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 5,
   },
-  headerSubtitle: {
-    fontSize: 16,
+  subtitle: {
+    fontSize: FontSize.base,
     color: '#fff',
     opacity: 0.9,
   },
   statsContainer: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 15,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+    marginTop: -20,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: Spacing.md,
   },
   statNumber: {
-    fontSize: 36,
+    fontSize: FontSize.xxl,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: Colors.primary,
     marginBottom: 5,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   section: {
-    padding: 20,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: FontSize.lg,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
+    color: Colors.text,
   },
-  quickActionCard: {
+  seeMoreText: {
+    fontSize: FontSize.sm,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  actionsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  actionCard: {
+    flex: 1,
+    minWidth: '47%',
+    aspectRatio: 1.5,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  disabledCard: {
-    opacity: 0.5,
+  actionIcon: {
+    fontSize: 32,
+    marginBottom: Spacing.sm,
   },
-  quickActionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  iconText: {
-    fontSize: 24,
-  },
-  quickActionContent: {
-    flex: 1,
-  },
-  quickActionTitle: {
-    fontSize: 16,
+  actionText: {
+    color: '#fff',
+    fontSize: FontSize.sm,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 3,
+    textAlign: 'center',
   },
-  quickActionDescription: {
-    fontSize: 13,
-    color: '#666',
-  },
-  arrow: {
-    fontSize: 24,
-    color: '#ccc',
-    marginLeft: 10,
-  },
-  recentTeamCard: {
+  teamCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
   },
-  teamBadge: {
+  teamRank: {
+    marginRight: Spacing.md,
+  },
+  rankBadge: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    backgroundColor: Colors.border,
   },
-  teamBadgeText: {
-    fontSize: 20,
+  rankText: {
+    fontSize: FontSize.base,
+    fontWeight: 'bold',
+    color: '#fff',
   },
-  recentTeamInfo: {
+  teamInfo: {
     flex: 1,
   },
-  recentTeamName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  recentTeamCaptain: {
-    fontSize: 13,
-    color: '#666',
-  },
-  welcomeContainer: {
-    backgroundColor: '#fff',
-    margin: 20,
-    padding: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  welcomeEmoji: {
-    fontSize: 60,
-    marginBottom: 15,
-  },
-  welcomeTitle: {
-    fontSize: 22,
+  teamName: {
+    fontSize: FontSize.base,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-    textAlign: 'center',
+    color: Colors.text,
+    marginBottom: 3,
   },
-  welcomeText: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
+  teamCaptain: {
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
   },
-  welcomeButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 8,
+  teamStats: {
+    alignItems: 'flex-end',
   },
-  welcomeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  teamPoints: {
+    fontSize: FontSize.lg,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: 3,
   },
-  footer: {
-    padding: 20,
+  teamRecord: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+  },
+  matchCard: {
+    marginBottom: Spacing.sm,
+    padding: Spacing.md,
+  },
+  matchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
+    paddingVertical: Spacing.sm,
   },
-  footerText: {
-    fontSize: 12,
-    color: '#999',
+  matchTeam: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.text,
+    flex: 1,
+  },
+  matchScore: {
+    fontSize: FontSize.xl,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginLeft: Spacing.sm,
+  },
+  matchDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.xs,
+  },
+  matchDate: {
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+    textAlign: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  emptyEmoji: {
+    fontSize: 60,
+    marginBottom: Spacing.md,
+  },
+  emptyTitle: {
+    fontSize: FontSize.xxl,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  emptyText: {
+    fontSize: FontSize.base,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    lineHeight: 24,
+  },
+  emptyButton: {
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.md,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: FontSize.base,
+    fontWeight: '600',
   },
 });
